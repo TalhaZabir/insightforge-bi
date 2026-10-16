@@ -1,0 +1,117 @@
+// InsightForge BI — DAX measures (paste into a Power BI measures table)
+// Grain: fact_sales (one row per order line). Cancelled orders are EXCLUDED
+// by default to match the app: apply a page/slicer filter
+// fact_sales[order_status] <> "Cancelled" (blank = included, as in the app).
+// Date table: dim_date[date] (continuous 2023-2026 in the seed).
+
+Total Revenue =
+SUM ( fact_sales[revenue] )
+
+Total Cost =
+SUMX (
+    fact_sales,
+    fact_sales[cost] * fact_sales[quantity] + fact_sales[shipping_cost]
+)
+
+Total Profit =
+SUM ( fact_sales[profit] )
+
+Profit Margin =
+DIVIDE ( [Total Profit], [Total Revenue] )
+
+Total Orders =
+DISTINCTCOUNT ( fact_sales[order_id] )
+
+Total Units =
+SUM ( fact_sales[quantity] )
+
+Average Order Value =
+DIVIDE ( [Total Revenue], [Total Orders] )
+
+Discount Rate =
+AVERAGE ( fact_sales[discount] )
+
+Revenue per Customer =
+DIVIDE (
+    [Total Revenue],
+    DISTINCTCOUNT ( fact_sales[customer_key] )
+)
+
+// First-ever purchase per customer (ignores current date filter on purpose).
+First Purchase Date =
+CALCULATE (
+    MIN ( dim_date[date] ),
+    REMOVEFILTERS ( dim_date ),
+    VALUES ( dim_customer[customer_id] )
+)
+
+New Customers =
+COUNTROWS (
+    FILTER (
+        VALUES ( dim_customer[customer_id] ),
+        NOT ISBLANK ( [Total Revenue] )
+            && [First Purchase Date] >= MIN ( dim_date[date] )
+            && [First Purchase Date] <= MAX ( dim_date[date] )
+    )
+)
+
+Returning Customers =
+COUNTROWS (
+    FILTER (
+        VALUES ( dim_customer[customer_id] ),
+        NOT ISBLANK ( [Total Revenue] )
+            && [First Purchase Date] < MIN ( dim_date[date] )
+    )
+)
+
+Repeat Customer Rate =
+DIVIDE (
+    [Returning Customers],
+    [Returning Customers] + [New Customers]
+)
+
+// Previous *equivalent* period: same length immediately before the current
+// selection — identical definition to the app's SQL growth calculation.
+Revenue Previous Period =
+VAR CurMin =
+    MIN ( dim_date[date] )
+VAR CurMax =
+    MAX ( dim_date[date] )
+VAR Days =
+    DATEDIFF ( CurMin, CurMax, DAY ) + 1
+RETURN
+    CALCULATE (
+        [Total Revenue],
+        DATESBETWEEN ( dim_date[date], CurMin - Days, CurMin - 1 )
+    )
+
+Profit Previous Period =
+VAR CurMin =
+    MIN ( dim_date[date] )
+VAR CurMax =
+    MAX ( dim_date[date] )
+VAR Days =
+    DATEDIFF ( CurMin, CurMax, DAY ) + 1
+RETURN
+    CALCULATE (
+        [Total Profit],
+        DATESBETWEEN ( dim_date[date], CurMin - Days, CurMin - 1 )
+    )
+
+Revenue Growth % =
+DIVIDE (
+    [Total Revenue] - [Revenue Previous Period],
+    ABS ( [Revenue Previous Period] )
+)
+
+Profit Growth % =
+DIVIDE (
+    [Total Profit] - [Profit Previous Period],
+    ABS ( [Profit Previous Period] )
+)
+
+Year-to-Date Revenue =
+TOTALYTD ( [Total Revenue], dim_date[date] )
+
+Year-to-Date Profit =
+TOTALYTD ( [Total Profit], dim_date[date] )

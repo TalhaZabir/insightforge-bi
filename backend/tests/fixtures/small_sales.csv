@@ -1,0 +1,12 @@
+order_id,order_date,customer_id,customer_name,product_id,product_name,category,region,country,sales_channel,quantity,unit_price,discount,cost,shipping_cost,revenue,profit,order_status
+O-1,2024-03-01,C-1,Acme Corp,P-1,Widget,Electronics,West,USA,Online,2,100,0.1,60,5,,,Completed
+O-2,2024-03-02,C-2,Beta LLC,P-2,Gadget,Apparel,East,USA,Retail Store,1,50,0,30,0,50,20,Completed
+O-3,2024-03-03,C-1,Acme Corp,P-1,Widget,Electronics,West,USA,Online,2,50,0,40,5,100,999,Completed
+,2024-03-04,C-3,Gamma Inc,P-3,Thing,Sports,South,USA,Online,1,20,0,10,0,20,10,Completed
+O-5,not-a-date,C-3,Gamma Inc,P-3,Thing,Sports,South,USA,Online,1,20,0,10,0,20,10,Completed
+O-6,2024-03-06,C-3,Gamma Inc,P-3,Thing,Sports,South,USA,Online,0,20,0,10,0,0,0,Completed
+O-7,2024-03-07,C-3,Gamma Inc,P-3,Thing,Sports,South,USA,Online,1,20,150,10,0,20,10,Completed
+O-2,2024-03-02,C-2,Beta LLC,P-2,Gadget,Apparel,East,USA,Retail Store,1,50,0,30,0,50,20,Completed
+O-9,2024-03-09,C-4,Delta Co,P-4,Doohickey,Gadgets!,North,USA,Online,1,10,0,5,0,10,,Pending
+O-10,2024-03-10,C-5,Epsilon Ltd,P-5,Contraption,Beauty,West,USA,Wholesale,3,$59.99,0,20,0,,,Completed
+O-12,2024-03-12,C-6,Zeta GmbH,,Whatchamacallit,Home & Kitchen,East,USA,Online,2,25,0,10,2,50,,Completed
