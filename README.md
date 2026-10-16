@@ -2,6 +2,9 @@
 
 # InsightForge BI — End-to-End Retail Analytics Platform
 
+**Live demo:** https://insightforge-web.onrender.com
+(demo login `admin@insightforge.io` / `Admin123!`)
+
 Upload CSV/XLSX sales data → validate & clean with Pandas → store in
 PostgreSQL star schema → analyze with SQL → dashboards, executive insights
 and Power BI-ready exports. Built with **Next.js 14 + FastAPI + PostgreSQL**.
