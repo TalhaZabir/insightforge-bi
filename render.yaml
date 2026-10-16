@@ -54,6 +54,8 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 20
-      # UPDATE if your backend subdomain differs, then redeploy this service:
+      # Live URL: https://insightforge-api-q13f.onrender.com
+      # (Render suffixed the subdomain; update if it ever changes,
+      # then redeploy this service)
       - key: NEXT_PUBLIC_API_URL
-        value: https://insightforge-api.onrender.com
+        value: https://insightforge-api-q13f.onrender.com
