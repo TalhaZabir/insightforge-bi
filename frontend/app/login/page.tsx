@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -56,9 +57,14 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-[#0A1628] px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500 font-bold text-white">
-            IF
-          </div>
+          <Image
+            src="/logo-icon.png"
+            alt="InsightForge BI logo"
+            width={40}
+            height={40}
+            className="h-10 w-10 rounded-lg object-cover"
+            priority
+          />
           <div>
             <h1 className="text-lg font-semibold text-[#0A1628]">InsightForge BI</h1>
             <p className="text-xs text-slate-500">Sign in to your workspace</p>

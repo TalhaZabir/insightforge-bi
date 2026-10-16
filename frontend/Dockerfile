@@ -12,5 +12,6 @@ FROM node:20-alpine
 WORKDIR /app
 COPY --from=deps /app/.next/standalone ./
 COPY --from=deps /app/.next/static ./.next/static
+COPY --from=deps /app/public ./public
 EXPOSE 3000
 CMD ["node", "server.js"]

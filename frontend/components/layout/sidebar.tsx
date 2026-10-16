@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   BadgeCheck,
@@ -56,9 +57,14 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         )}
       >
         <div className="flex items-center gap-3 px-5 py-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-500 text-sm font-bold text-white">
-            IF
-          </div>
+          <Image
+            src="/logo-icon.png"
+            alt="InsightForge BI logo"
+            width={36}
+            height={36}
+            className="h-9 w-9 rounded-lg object-cover"
+            priority
+          />
           <div>
             <p className="text-sm font-semibold text-white">InsightForge BI</p>
             <p className="text-[11px] text-slate-400">Retail analytics</p>

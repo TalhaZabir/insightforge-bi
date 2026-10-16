@@ -1,3 +1,5 @@
+![InsightForge BI — Retail Analytics](docs/screenshots/banner.png)
+
 # InsightForge BI — End-to-End Retail Analytics Platform
 
 Upload CSV/XLSX sales data → validate & clean with Pandas → store in
