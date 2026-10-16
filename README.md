@@ -30,12 +30,17 @@ and Power BI-ready exports. Built with **Next.js 14 + FastAPI + PostgreSQL**.
 
 ## Screenshots
 
-> Capture after `docker compose up --build` (or local dev), then drop the
-> PNGs into `docs/screenshots/`:
-> 1. `overview.png` — sign in as admin, open Overview with 2025 selected
-> 2. `wizard.png` — Data Imports mid-validation on the demo CSV
-> 3. `insights.png` — Executive Insights page
-> 4. `powerbi.png` — Power BI Desktop with the relationships view
+![Overview](docs/screenshots/overview.png)
+*Overview dashboard — sign in as admin with 2025 selected*
+
+![Import wizard](docs/screenshots/wizard.png)
+*Data Imports mid-validation on the demo CSV*
+
+![Executive insights](docs/screenshots/insights.png)
+*Executive Insights page*
+
+![Power BI](docs/screenshots/powerbi.png)
+*Power BI Desktop relationships view*
 
 ## Quickstart (Docker - Local)
 
