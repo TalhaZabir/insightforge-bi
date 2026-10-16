@@ -20,8 +20,9 @@ services:
     plan: free
     healthCheckPath: /health
     buildCommand: "pip install -r requirements.txt"
-    preDeployCommand: 'export DATABASE_URL=$(echo "$RENDER_DATABASE_URL" | sed ''s|^postgres://|postgresql+psycopg2://|'') && alembic upgrade head && python -m app.seeds.run'
-    startCommand: 'export DATABASE_URL=$(echo "$RENDER_DATABASE_URL" | sed ''s|^postgres://|postgresql+psycopg2://|'') && uvicorn app.main:app --host 0.0.0.0 --port $PORT'
+    # Free tier has no preDeployCommand, so migrate + seed at boot
+    # (both idempotent) before starting the API.
+    startCommand: 'export DATABASE_URL=$(echo "$RENDER_DATABASE_URL" | sed ''s|^postgres://|postgresql+psycopg2://|'') && alembic upgrade head && python -m app.seeds.run && uvicorn app.main:app --host 0.0.0.0 --port $PORT'
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
