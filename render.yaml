@@ -1,0 +1,58 @@
+# InsightForge BI — Render Blueprint
+# Deploy: Render Dashboard → New → Blueprint → select
+# TalhaZabir/insightforge-bi (branch main) → Apply.
+# Deploy config only — no app code or README changes.
+# If Render assigns different onrender.com subdomains, update the two
+# marked URLs in the Dashboard and redeploy that service.
+
+databases:
+  - name: insightforge-db
+    plan: free
+    databaseName: insightforge
+    user: insightforge
+
+services:
+  # FastAPI backend (migrates + seeds before each deploy, serves on $PORT)
+  - type: web
+    name: insightforge-api
+    runtime: python
+    rootDir: backend
+    plan: free
+    healthCheckPath: /health
+    buildCommand: "pip install -r requirements.txt"
+    preDeployCommand: 'export DATABASE_URL=$(echo "$RENDER_DATABASE_URL" | sed ''s|^postgres://|postgresql+psycopg2://|'') && alembic upgrade head && python -m app.seeds.run'
+    startCommand: 'export DATABASE_URL=$(echo "$RENDER_DATABASE_URL" | sed ''s|^postgres://|postgresql+psycopg2://|'') && uvicorn app.main:app --host 0.0.0.0 --port $PORT'
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      # Raw Render connection string (postgres://…); converted to
+      # postgresql+psycopg2://… in the commands above — no code change.
+      - key: RENDER_DATABASE_URL
+        fromDatabase:
+          name: insightforge-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      # UPDATE if your frontend subdomain differs:
+      - key: CORS_ORIGINS
+        value: https://insightforge-web.onrender.com
+      - key: LOG_LEVEL
+        value: INFO
+      - key: UPLOAD_DIR
+        value: ./uploads
+
+  # Next.js frontend (NEXT_PUBLIC_API_URL is baked in at build time)
+  - type: web
+    name: insightforge-web
+    runtime: node
+    rootDir: frontend
+    plan: free
+    healthCheckPath: /login
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm run start -- --port $PORT --hostname 0.0.0.0"
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      # UPDATE if your backend subdomain differs, then redeploy this service:
+      - key: NEXT_PUBLIC_API_URL
+        value: https://insightforge-api.onrender.com
