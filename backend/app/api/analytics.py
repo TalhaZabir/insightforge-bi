@@ -5,6 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.analytics import customers_ext as CX
+from app.analytics import forecast as FC
 from app.analytics import queries as Q
 from app.analytics.filters import (
     common_filters,
@@ -141,7 +143,7 @@ def customers(
     buckets = ["< $500", "$500–2k", "$2k–10k", "> $10k"]
     dist_customers = [0, 0, 0, 0]
     dist_revenue = [0.0, 0.0, 0.0, 0.0]
-    full = Q.top_customers(db, f, cf, ct, limit=100000)
+    full = Q.top_customers(db, f, cf, ct, limit=10000)
     for t in full:
         i = (
             0
@@ -162,6 +164,9 @@ def customers(
             sum(t["revenue"] for t in top[:3]) / total_rev if total_rev else 0.0
         ),
         "revenue_distribution": dist,
+        "rfm": CX.rfm(db, f, cf, ct),
+        "cohorts": CX.cohorts(db, f, cf, ct),
+        "declining": CX.declining(db, f, cf, ct),
     }
 
 
@@ -197,6 +202,147 @@ def regions(
         "ranking": ranked,
         "by_channel": Q.by_channel(db, f, cf, ct, pf, pt),
         "trend": Q.timeseries(db, f, cf, ct),
+    }
+
+
+@router.get("/forecast")
+def forecast(
+    f: dict = Depends(common_filters),
+    db: Session = Depends(get_db),
+    _u: User = Depends(get_current_user),
+    horizon: int = 3,
+):
+    cf, ct, _, _ = resolve_period(f)
+    return FC.forecast_revenue(db, f, cf, ct, horizon=horizon)
+
+
+@router.get("/targets")
+def list_targets(db: Session = Depends(get_db), _u: User = Depends(get_current_user)):
+    from app.models.entities import MonthlyTarget
+
+    rows = db.query(MonthlyTarget).order_by(MonthlyTarget.month.desc()).limit(36).all()
+    return [
+        {
+            "month": r.month.isoformat()[:7],
+            "revenue_target": float(r.revenue_target or 0),
+            "profit_target": float(r.profit_target or 0),
+        }
+        for r in rows
+    ]
+
+
+@router.put("/targets/{month}")
+def upsert_target(
+    month: str,
+    body: dict,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    from datetime import date as _date
+
+    if user.role not in ("admin", "analyst"):
+        from fastapi import HTTPException as _H
+
+        raise _H(status_code=403, detail="Requires admin or analyst")
+    from app.models.entities import MonthlyTarget
+
+    try:
+        m = _date.fromisoformat(f"{month}-01")
+    except ValueError:
+        from fastapi import HTTPException as _H
+
+        raise _H(status_code=422, detail="Month must be YYYY-MM") from None
+    rev = float(body.get("revenue_target") or 0)
+    prof = float(body.get("profit_target") or 0)
+    if rev < 0 or prof < 0:
+        from fastapi import HTTPException as _H
+
+        raise _H(status_code=422, detail="Targets must be >= 0") from None
+    row = db.query(MonthlyTarget).filter(MonthlyTarget.month == m).first()
+    if row is None:
+        row = MonthlyTarget(month=m, revenue_target=rev, profit_target=prof, created_by=user.id)
+        db.add(row)
+    else:
+        row.revenue_target, row.profit_target = rev, prof
+    db.commit()
+    return {"month": month, "revenue_target": rev, "profit_target": prof}
+
+
+@router.get("/targets/tracking")
+def target_tracking(
+    month: str | None = None,
+    db: Session = Depends(get_db),
+    _u: User = Depends(get_current_user),
+):
+    """Actual vs target for a month (defaults to latest month with data)."""
+    import calendar
+    from datetime import date as _date
+
+    from app.models.entities import MonthlyTarget
+
+    if month is None:
+        last = db.query(MonthlyTarget.month).order_by(MonthlyTarget.month.desc()).first()
+        if last is None:
+            return {"available": False, "reason": "No targets defined yet."}
+        m = last[0]
+        month = m.isoformat()[:7]
+    try:
+        y, mm = int(month[:4]), int(month[5:7])
+        start, end = _date(y, mm, 1), _date(y, mm, calendar.monthrange(y, mm)[1])
+    except (ValueError, IndexError):
+        from fastapi import HTTPException as _H
+
+        raise _H(status_code=422, detail="Month must be YYYY-MM") from None
+    f: dict = {
+        "date_from": start.isoformat(),
+        "date_to": end.isoformat(),
+        "region": None,
+        "country": None,
+        "category": None,
+        "subcategory": None,
+        "product": None,
+        "segment": None,
+        "channel": None,
+        "rep": None,
+        "status": None,
+    }
+    cur = kpi_row(db, f, start, end)
+    tgt = db.query(MonthlyTarget).filter(MonthlyTarget.month == start).first()
+    if tgt is None:
+        return {
+            "available": False,
+            "month": month,
+            "reason": f"No target set for {month}.",
+            "actual": {"revenue": cur["revenue"], "profit": cur["profit"]},
+        }
+    rev_t, prof_t = float(tgt.revenue_target or 0), float(tgt.profit_target or 0)
+    today = _date.today()
+    elapsed = max(1, min((min(today, end) - start).days + 1, (end - start).days + 1))
+    total_days = (end - start).days + 1
+    remaining = max(0, total_days - elapsed)
+    req_daily = ((rev_t - cur["revenue"]) / remaining) if remaining and rev_t else None
+    return {
+        "available": True,
+        "month": month,
+        "actual": {
+            "revenue": cur["revenue"],
+            "profit": cur["profit"],
+            "margin": cur["margin"],
+            "orders": cur["orders"],
+        },
+        "target": {"revenue": rev_t, "profit": prof_t},
+        "variance": {
+            "revenue_abs": cur["revenue"] - rev_t,
+            "revenue_pct": growth(cur["revenue"], rev_t),
+            "profit_abs": cur["profit"] - prof_t,
+            "profit_pct": growth(cur["profit"], prof_t),
+        },
+        "progress": {
+            "revenue_pct_of_target": (cur["revenue"] / rev_t * 100.0) if rev_t else None,
+            "elapsed_days": elapsed,
+            "total_days": total_days,
+            "required_daily_revenue": req_daily,
+        },
     }
 
 

@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { downloadFile } from "@/lib/api";
+import { useFilters } from "@/hooks/useFilters";
 import { Button } from "@/components/ui/button";
 import { Card, CardHint, CardTitle } from "@/components/ui/card";
+import { ErrorState } from "@/components/ui/kpi";
 
 const TABLES = [
   ["fact_sales", "One row per order line. Keys join to dimensions; date_key is YYYYMMDD."],
@@ -18,13 +20,18 @@ const TABLES = [
 
 export default function PowerBIPage() {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { queryString } = useFilters();
 
   const download = async () => {
     setBusy(true);
+    setError(null);
     try {
-      await downloadFile("/exports/power-bi", "insightforge_powerbi.zip");
+      await downloadFile(`/exports/power-bi${queryString}`, "insightforge_powerbi.zip");
       toast.success("Power BI bundle downloaded");
-    } catch {
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Export failed";
+      setError(msg);
       toast.error("Export failed");
     } finally {
       setBusy(false);
@@ -35,11 +42,12 @@ export default function PowerBIPage() {
     <div className="space-y-4">
       <Card className="p-5">
         <CardTitle>Power BI export bundle</CardTitle>
-        <CardHint>Cleaned star-schema CSVs (fact + 6 dimensions) in one ZIP</CardHint>
+        <CardHint>Filtered star-schema CSVs (fact + dimensions) + DAX + manifest in one ZIP. Set filters on any analytics page first — this export respects the current filter context.</CardHint>
         <div className="mt-3">
           <Button disabled={busy} onClick={() => void download()}>
             {busy ? "Preparing…" : "Download bundle (.zip)"}
           </Button>
+          {error && <ErrorState message={error} onRetry={() => void download()} />}
         </div>
       </Card>
       <Card className="p-5">

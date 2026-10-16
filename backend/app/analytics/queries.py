@@ -7,6 +7,12 @@ from datetime import date
 from sqlalchemy import case, func
 
 from app.analytics.filters import filtered, growth
+from app.analytics.kpi_catalog import (
+    aov_or_zero,
+    is_low_margin,
+    margin_or_zero,
+    to_float,
+)
 from app.models.entities import (
     DimChannel,
     DimCustomer,
@@ -19,11 +25,11 @@ from app.models.entities import (
 
 def _pack(row, labels: list[str]) -> dict:
     d = {label: row[i] for i, label in enumerate(labels)}
-    d["revenue"] = float(row[len(labels)])
-    d["profit"] = float(row[len(labels) + 1])
+    d["revenue"] = to_float(row[len(labels)])
+    d["profit"] = to_float(row[len(labels) + 1])
     d["orders"] = int(row[len(labels) + 2])
-    d["units"] = float(row[len(labels) + 3])
-    d["margin"] = (d["profit"] / d["revenue"]) if d["revenue"] else 0.0
+    d["units"] = to_float(row[len(labels) + 3])
+    d["margin"] = margin_or_zero(d["profit"], d["revenue"])
     return d
 
 
@@ -59,7 +65,7 @@ def timeseries(db, f, cf: date | None, ct: date | None) -> dict:
     for r in cur:
         if "date" in r and r["date"] is not None:
             r["date"] = str(r["date"])
-        r["aov"] = (r["revenue"] / r["orders"]) if r["orders"] else 0.0
+        r["aov"] = aov_or_zero(r["revenue"], r["orders"]) if r["orders"] else 0.0
     grain = "daily" if span <= 62 else "monthly"
     return {"grain": grain, "points": cur}
 
@@ -113,7 +119,7 @@ def by_product(db, f, cf, ct, limit: int = 50):
     )
     rows = sorted(rows, key=lambda r: r["revenue"], reverse=True)[:limit]
     for r in rows:
-        r["low_margin"] = r["margin"] < 0.10 and r["revenue"] > 0
+        r["low_margin"] = is_low_margin(r["margin"], r["revenue"])
     return rows
 
 
@@ -129,7 +135,7 @@ def top_customers(db, f, cf, ct, limit: int = 20):
     rows = [r for r in rows if r["customer_id"]]
     rows = sorted(rows, key=lambda r: r["revenue"], reverse=True)[:limit]
     for r in rows:
-        r["aov"] = (r["revenue"] / r["orders"]) if r["orders"] else 0.0
+        r["aov"] = aov_or_zero(r["revenue"], r["orders"])
     return rows
 
 
@@ -151,15 +157,15 @@ def discount_buckets(db, f, cf, ct):
     out = [
         {
             "bucket": r[0],
-            "revenue": float(r[1]),
-            "profit": float(r[2]),
+            "revenue": to_float(r[1]),
+            "profit": to_float(r[2]),
             "orders": int(r[3]),
-            "units": float(r[4]),
+            "units": to_float(r[4]),
         }
         for r in rows
     ]
     for r in out:
-        r["margin"] = (r["profit"] / r["revenue"]) if r["revenue"] else 0.0
+        r["margin"] = margin_or_zero(r["profit"], r["revenue"])
     order = {"none": 0, "low": 1, "high": 2}
     return sorted(out, key=lambda r: order.get(r["bucket"], 9))
 
@@ -219,9 +225,9 @@ def orders_table(
             "category": r[4],
             "region": r[5],
             "channel": r[6],
-            "quantity": float(r[7]),
-            "revenue": float(r[8]),
-            "profit": float(r[9]),
+            "quantity": to_float(r[7]),
+            "revenue": to_float(r[8]),
+            "profit": to_float(r[9]),
             "status": r[10],
         }
         for r in rows

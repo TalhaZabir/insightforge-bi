@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/api";
 import { useFilters } from "@/hooks/useFilters";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardHint, CardTitle } from "@/components/ui/card";
 import { EmptyState, ErrorState } from "@/components/ui/kpi";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,6 +18,11 @@ type Insight = {
   metric: { label: string; value: number; unit: string };
   action: string;
   dimension: { type: string; value: string } | null;
+  observed?: number | null;
+  baseline?: number | null;
+  pct_change?: number | null;
+  calculation?: string | null;
+  limitations?: string | null;
 };
 
 const sevTone = (s: Insight["severity"]) =>
@@ -31,6 +38,22 @@ export default function InsightsPage() {
     queryKey: ["insights", queryString],
     queryFn: () => apiGet<{ insights: Insight[]; generated_at: string }>(`/insights${queryString}`),
   });
+  const [dismissed, setDismissed] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("if_dismissed_insights") ?? "[]");
+    } catch {
+      return [];
+    }
+  });
+  const dismiss = (headline: string) => {
+    const next = [...dismissed, headline];
+    setDismissed(next);
+    try {
+      localStorage.setItem("if_dismissed_insights", JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  };
 
   if (q.isPending)
     return (
@@ -41,11 +64,12 @@ export default function InsightsPage() {
       </div>
     );
   if (q.isError) return <ErrorState message={q.error.message} onRetry={() => q.refetch()} />;
-  if (q.data.insights.length === 0) return <EmptyState title="No insights for this selection" />;
+  const visible = q.data.insights.filter((i) => !dismissed.includes(i.headline));
+  if (visible.length === 0) return <EmptyState title="No insights for this selection" />;
 
   const groups = ORDER.map((c) => ({
     cat: c,
-    items: q.data.insights.filter((i) => i.category === c),
+    items: visible.filter((i) => i.category === c),
   })).filter((g) => g.items.length > 0);
 
   return (
@@ -81,10 +105,21 @@ export default function InsightsPage() {
                     Related {i.dimension.type}: <span className="font-medium">{i.dimension.value}</span>
                   </p>
                 )}
+                {(i.calculation || i.limitations) && (
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    {i.calculation && <span>How: {i.calculation} </span>}
+                    {i.limitations && <span>Limit: {i.limitations}</span>}
+                  </p>
+                )}
                 <p className="mt-2 rounded-lg bg-teal-50 px-2.5 py-1.5 text-xs text-teal-900">
                   <span className="font-semibold">Recommended: </span>
                   {i.action}
                 </p>
+                <div className="mt-2">
+                  <Button size="sm" variant="ghost" onClick={() => dismiss(i.headline)}>
+                    Dismiss
+                  </Button>
+                </div>
               </Card>
             ))}
           </div>

@@ -26,6 +26,8 @@ class CleanRequest(BaseModel):
 
 class ConfirmRequest(BaseModel):
     job_id: str
+    import_mode: str = Field(default="append", pattern="^(append|upsert|replace)$")
+    confirm_replace: bool = False
 
 
 class JobOut(BaseModel):

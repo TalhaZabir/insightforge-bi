@@ -10,10 +10,10 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
-    Float,
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -124,6 +124,22 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class MonthlyTarget(Base):
+    """Monthly revenue/profit targets (single-org; month = YYYY-MM-01)."""
+
+    __tablename__ = "monthly_targets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    month: Mapped[date] = mapped_column(Date, unique=True, index=True)
+    revenue_target: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    profit_target: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    created_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
 # ---------------- Dimensions ----------------
 
 
@@ -214,13 +230,13 @@ class FactSale(Base):
         Integer, ForeignKey("dim_sales_rep.id"), nullable=True
     )
 
-    quantity: Mapped[float] = mapped_column(Float)
-    unit_price: Mapped[float] = mapped_column(Float, default=0)
-    discount: Mapped[float] = mapped_column(Float, default=0)  # 0-1 fraction
-    cost: Mapped[float] = mapped_column(Float, default=0)
-    shipping_cost: Mapped[float] = mapped_column(Float, default=0)
-    revenue: Mapped[float] = mapped_column(Float, index=True)
-    profit: Mapped[float] = mapped_column(Float)
+    quantity: Mapped[float] = mapped_column(Numeric(12, 2))
+    unit_price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    discount: Mapped[float] = mapped_column(Numeric(12, 4), default=0)  # 0-1 fraction
+    cost: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    shipping_cost: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    revenue: Mapped[float] = mapped_column(Numeric(12, 2), index=True)
+    profit: Mapped[float] = mapped_column(Numeric(12, 2))
 
     payment_method: Mapped[str | None] = mapped_column(String(80), nullable=True)
     order_status: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)

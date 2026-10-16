@@ -36,7 +36,7 @@ export const NAV: NavItem[] = [
   { href: "/quality", label: "Data Quality", icon: BadgeCheck, roles: ["admin", "analyst", "viewer"] },
   { href: "/insights", label: "Executive Insights", icon: Lightbulb, roles: ["admin", "analyst", "viewer"] },
   { href: "/power-bi", label: "Power BI Export", icon: Download, roles: ["admin", "analyst", "viewer"] },
-  { href: "/settings", label: "Settings", icon: Settings, roles: ["admin"] },
+  { href: "/settings", label: "Settings", icon: Settings, roles: ["admin", "analyst"] },
 ];
 
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {

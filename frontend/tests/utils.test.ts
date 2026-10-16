@@ -8,11 +8,11 @@ describe("format utils", () => {
     expect(fmtCurrency(1234.567, 2)).toBe("$1,234.57");
   });
 
-  it("renders em-dash for missing values", () => {
-    expect(fmtCurrency(null)).toBe("—");
-    expect(fmtCurrency(undefined)).toBe("—");
-    expect(fmtNum(Number.NaN)).toBe("—");
-    expect(fmtPct(undefined)).toBe("—");
+  it("renders N/A for missing values (insufficient history)", () => {
+    expect(fmtCurrency(null)).toBe("N/A");
+    expect(fmtCurrency(undefined)).toBe("N/A");
+    expect(fmtNum(Number.NaN)).toBe("N/A");
+    expect(fmtPct(undefined)).toBe("N/A");
   });
 
   it("formats margin fractions as percent", () => {
@@ -22,7 +22,7 @@ describe("format utils", () => {
   it("signs growth values", () => {
     expect(fmtGrowth(12.34)).toBe("+12.3%");
     expect(fmtGrowth(-3.21)).toBe("-3.2%");
-    expect(fmtGrowth(null)).toBe("—");
+    expect(fmtGrowth(null)).toBe("N/A");
   });
 });
 

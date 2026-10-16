@@ -1,4 +1,5 @@
 """Unit + API tests for the ingestion pipeline (Part 4)."""
+
 from __future__ import annotations
 
 import io
@@ -21,14 +22,24 @@ from app.models.entities import DimDate, User
 
 FIX = Path(__file__).parent / "fixtures" / "small_sales.csv"
 MAPPING = {
-    "order_id": "order_id", "order_date": "order_date",
-    "customer_id": "customer_id", "customer_name": "customer_name",
-    "product_id": "product_id", "product_name": "product_name",
-    "category": "category", "region": "region", "country": "country",
-    "sales_channel": "sales_channel", "quantity": "quantity",
-    "unit_price": "unit_price", "discount": "discount", "cost": "cost",
-    "shipping_cost": "shipping_cost", "revenue": "revenue",
-    "profit": "profit", "order_status": "order_status",
+    "order_id": "order_id",
+    "order_date": "order_date",
+    "customer_id": "customer_id",
+    "customer_name": "customer_name",
+    "product_id": "product_id",
+    "product_name": "product_name",
+    "category": "category",
+    "region": "region",
+    "country": "country",
+    "sales_channel": "sales_channel",
+    "quantity": "quantity",
+    "unit_price": "unit_price",
+    "discount": "discount",
+    "cost": "cost",
+    "shipping_cost": "shipping_cost",
+    "revenue": "revenue",
+    "profit": "profit",
+    "order_status": "order_status",
 }
 
 
@@ -48,7 +59,9 @@ def test_csv_parser_reads_fixture():
 
 def test_csv_parser_cp1252(tmp_path):
     p = tmp_path / "enc.csv"
-    p.write_bytes("order_id,order_date,quantity\nO-1,2024-01-01,1\nO-2,2024-01-02,caf\xe9\n".encode("cp1252"))
+    p.write_bytes(
+        "order_id,order_date,quantity\nO-1,2024-01-01,1\nO-2,2024-01-02,caf\xe9\n".encode("cp1252")
+    )
     df, _, enc = read_upload(p)
     assert enc == "cp1252" and len(df) == 2
 
@@ -82,8 +95,13 @@ def test_mapper_requirement_checks():
     assert check_mapping({}, ["a"])  # missing everything
     ok = {"order_id": "a", "order_date": "b", "quantity": "c", "product_id": "d", "revenue": "e"}
     assert check_mapping(ok, ["a", "b", "c", "d", "e"]) == []
-    alt = {"order_id": "a", "order_date": "b", "quantity": "c",
-           "product_name": "d", "unit_price": "e"}
+    alt = {
+        "order_id": "a",
+        "order_date": "b",
+        "quantity": "c",
+        "product_name": "d",
+        "unit_price": "e",
+    }
     assert check_mapping(alt, ["a", "b", "c", "d", "e"]) == []  # OR-groups satisfied
 
 
@@ -97,10 +115,13 @@ def test_fixture_validation_counts():
     assert report.stats["duplicate_rows"] == 1
     assert report.stats["valid_rows"] == 6
     rules = {i["rule"] for i in report.issues if i["severity"] == "error"}
-    assert {"blank_order_id", "invalid_date", "nonpositive_quantity",
-            "discount_out_of_range"} <= rules
-    assert any(i["rule"] == "profit_mismatch" and i["severity"] == "warning"
-               for i in report.issues)
+    assert {
+        "blank_order_id",
+        "invalid_date",
+        "nonpositive_quantity",
+        "discount_out_of_range",
+    } <= rules
+    assert any(i["rule"] == "profit_mismatch" and i["severity"] == "warning" for i in report.issues)
     assert any(i["rule"] == "unknown_category" for i in report.issues)
     assert any(i["rule"] == "missing_product_id" for i in report.issues)
 
@@ -137,13 +158,22 @@ def client(tmp_path, monkeypatch):
     Base.metadata.create_all(bind=test_engine)
 
     s = TestingSession()
-    s.add(User(email="analyst@t.io", hashed_password=hash_password("pw123456"),
-               role="analyst"))
-    s.add(User(email="viewer@t.io", hashed_password=hash_password("pw123456"),
-               role="viewer"))
-    s.add(DimDate(date_key=20240301, date=pd.to_datetime("2024-03-01").date(),
-                  year=2024, quarter=1, month=3, month_name="March", day=1,
-                  weekday=4, weekday_name="Friday", is_weekend=False))
+    s.add(User(email="analyst@t.io", hashed_password=hash_password("pw123456"), role="analyst"))
+    s.add(User(email="viewer@t.io", hashed_password=hash_password("pw123456"), role="viewer"))
+    s.add(
+        DimDate(
+            date_key=20240301,
+            date=pd.to_datetime("2024-03-01").date(),
+            year=2024,
+            quarter=1,
+            month=3,
+            month_name="March",
+            day=1,
+            weekday=4,
+            weekday_name="Friday",
+            is_weekend=False,
+        )
+    )
     s.commit()
     s.close()
 
@@ -188,7 +218,9 @@ def test_upload_to_database_lifecycle(client: TestClient):
     assert r.status_code == 200 and r.json()["total_rows"] == 11
     assert r.json()["suggested_mapping"]["order_id"] == "order_id"
 
-    r = client.post(f"/uploads/{file_id}/validate", json={"sheet": None, "mapping": MAPPING}, headers=h)
+    r = client.post(
+        f"/uploads/{file_id}/validate", json={"sheet": None, "mapping": MAPPING}, headers=h
+    )
     assert r.status_code == 200, r.text
     assert r.json()["summary"]["valid_rows"] == 6
     job_id = r.json()["job_id"]

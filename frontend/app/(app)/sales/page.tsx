@@ -7,8 +7,8 @@ import { useFilters } from "@/hooks/useFilters";
 import { fmtCurrency, fmtNum } from "@/lib/format";
 import { MoneyBars, TrendChart } from "@/components/charts/charts";
 import { Card, CardHint, CardTitle } from "@/components/ui/card";
-import { EmptyState, ErrorState } from "@/components/ui/kpi";
-import { ChartSkeleton } from "@/components/ui/skeleton";
+import { EmptyState, ErrorState, KpiCard } from "@/components/ui/kpi";
+import { ChartSkeleton, KpiSkeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -18,6 +18,17 @@ type Sales = {
   by_channel: { channel: string; revenue: number; profit: number; margin: number; orders: number; revenue_growth?: number | null }[];
   by_region: { region: string; revenue: number; profit: number; margin: number; orders: number }[];
   by_category: { category: string; revenue: number; profit: number; margin: number; orders: number }[];
+};
+
+type Forecast = {
+  available: boolean;
+  reason?: string;
+  history: { month: string; revenue: number }[];
+  validation?: { months: string[]; actual: number[]; predicted: number[] };
+  accuracy?: { model: string; mae: number | null; rmse: number | null; wape: number | null; validation_months: number };
+  forecast?: { month: string; revenue: number }[];
+  horizon: number;
+  assumptions?: string;
 };
 
 type Orders = {
@@ -55,6 +66,10 @@ export default function SalesPage() {
         `/analytics/sales/orders${queryString}${queryString ? "&" : "?"}page=${page}&page_size=15&sort=order_date&direction=desc&search=${encodeURIComponent(applied)}`
       ),
   });
+  const fc = useQuery({
+    queryKey: ["forecast", queryString],
+    queryFn: () => apiGet<Forecast>(`/analytics/forecast${queryString}${queryString ? "&" : "?"}horizon=3`),
+  });
 
   if (q.isPending)
     return (
@@ -72,17 +87,10 @@ export default function SalesPage() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {[
-          ["Revenue", fmtCurrency(q.data.kpis.revenue)],
-          ["Orders", fmtNum(q.data.kpis.orders)],
-          ["Units", fmtNum(q.data.kpis.units)],
-          ["AOV", fmtCurrency(q.data.kpis.aov, 2)],
-        ].map(([k, v]) => (
-          <Card key={k} className="p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">{k}</p>
-            <p className="mt-1 text-xl font-semibold">{v}</p>
-          </Card>
-        ))}
+        <KpiCard label="Revenue" hint="Net sales, cancelled excluded" format={(v) => fmtCurrency(v)} data={{ value: q.data.kpis.revenue }} />
+        <KpiCard label="Orders" hint="Distinct order IDs" format={(v) => fmtNum(v)} data={{ value: q.data.kpis.orders }} />
+        <KpiCard label="Units" hint="Sum of quantities" format={(v) => fmtNum(v)} data={{ value: q.data.kpis.units }} />
+        <KpiCard label="AOV" hint="Revenue divided by orders" format={(v) => fmtCurrency(v, 2)} data={{ value: q.data.kpis.aov }} />
       </div>
       <Card className="p-5">
         <CardTitle>Revenue over time</CardTitle>
@@ -127,7 +135,10 @@ export default function SalesPage() {
             </Button>
           </form>
         </div>
-        <div className="mt-2 overflow-x-auto">
+        <div className="mt-2 overflow-x-auto" aria-busy={t.isPending}>
+          {t.isPending ? (
+            <ChartSkeleton />
+          ) : (
           <table className="min-w-full text-xs">
             <thead>
               <tr className="text-left text-slate-500">
@@ -157,6 +168,7 @@ export default function SalesPage() {
               ))}
             </tbody>
           </table>
+          )}
         </div>
         <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
           <span>
@@ -170,6 +182,53 @@ export default function SalesPage() {
               Next
             </Button>
           </div>
+        </div>
+      </Card>
+      <Card className="p-5">
+        <CardTitle>Revenue forecast</CardTitle>
+        <CardHint>Baseline models (naive / seasonal-naive / moving-average) with chronological backtest</CardHint>
+        <div className="mt-2 text-xs text-slate-600">
+          {fc.isPending && <p>Loading forecast…</p>}
+          {fc.isError && <p className="text-red-600">Forecast unavailable: {fc.error.message}</p>}
+          {fc.data && !fc.data.available && <p>{fc.data.reason} Showing history only.</p>}
+          {fc.data?.available && (
+            <>
+              <p>
+                Best model: <span className="font-medium">{fc.data.accuracy?.model}</span> · MAE{" "}
+                {fc.data.accuracy?.mae?.toLocaleString() ?? "N/A"} · RMSE{" "}
+                {fc.data.accuracy?.rmse?.toLocaleString() ?? "N/A"} · WAPE{" "}
+                {fc.data.accuracy?.wape?.toFixed(1) ?? "N/A"}% ({fc.data.accuracy?.validation_months} validation months)
+              </p>
+              <div className="mt-2 overflow-x-auto">
+                <table className="min-w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-slate-500">
+                      <th className="px-2 py-1 font-medium">Month</th>
+                      <th className="px-2 py-1 font-medium">Type</th>
+                      <th className="px-2 py-1 font-medium">Revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fc.data.history.slice(-6).map((h) => (
+                      <tr key={h.month} className="border-t border-slate-100">
+                        <td className="px-2 py-1 font-mono">{h.month}</td>
+                        <td className="px-2 py-1">actual</td>
+                        <td className="px-2 py-1 text-right">{fmtCurrency(h.revenue)}</td>
+                      </tr>
+                    ))}
+                    {(fc.data.forecast ?? []).map((h) => (
+                      <tr key={h.month} className="border-t border-teal-100 bg-teal-50/50">
+                        <td className="px-2 py-1 font-mono">{h.month}</td>
+                        <td className="px-2 py-1">forecast</td>
+                        <td className="px-2 py-1 text-right">{fmtCurrency(h.revenue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-500">{fc.data.assumptions}</p>
+            </>
+          )}
         </div>
       </Card>
     </div>

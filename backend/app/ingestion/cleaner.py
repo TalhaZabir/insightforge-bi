@@ -80,6 +80,42 @@ def clean(df: pd.DataFrame, report) -> CleanOutcome:
             valid.loc[mask[mask].index, c] = stripped[mask]
             mark(mask)
 
+    # 1b. spreadsheet formula-injection guard: neutralize cells starting with
+    # =, +, -, @, tab/CR (after whitespace strip) in free-text columns.
+    formula_cols = [
+        c
+        for c in (
+            "customer_name",
+            "product_name",
+            "order_id",
+            "customer_id",
+            "product_id",
+            "region",
+            "country",
+            "category",
+            "subcategory",
+            "sales_channel",
+            "sales_rep",
+            "payment_method",
+            "order_status",
+        )
+        if c in valid.columns
+    ]
+    inj = 0
+    for c in formula_cols:
+        series = valid[c].astype(str)
+        mask = series.str.match(r"^[=+\-@\t\r]", na=False) & (valid[c].astype(str) != "")
+        # don't touch genuine NaN stringified as 'nan' unless it matches (it doesn't)
+        fixed = "'" + series[mask]
+        valid.loc[mask[mask].index, c] = fixed
+        inj += int(mask.sum())
+        mark(mask)
+    _track(
+        out,
+        "neutralize_formulas",
+        inj,
+        "Cells starting with = + - @_TAB_CR prefixed with ' to block spreadsheet formula execution",
+    )
     # 2. normalize vocab
     if "category" in valid.columns:
         mapped = valid["category"].astype(str).str.lower().map(CATEGORY_MAP)

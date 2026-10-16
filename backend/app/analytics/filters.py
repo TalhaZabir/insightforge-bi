@@ -8,6 +8,16 @@ from fastapi import Query
 from sqlalchemy import false, func
 from sqlalchemy.orm import Session
 
+from app.analytics.kpi_catalog import (
+    growth as catalog_growth,
+)
+from app.analytics.kpi_catalog import (
+    pack_kpi_row,
+    to_float,
+)
+from app.analytics.kpi_catalog import (
+    repeat_rate as catalog_repeat_rate,
+)
 from app.models.entities import (
     DimChannel,
     DimCustomer,
@@ -121,21 +131,25 @@ AGG = [
 
 def kpi_row(db: Session, f: dict, d_from: date | None, d_to: date | None) -> dict:
     r = filtered(db, f, d_from, d_to).with_entities(*AGG).first()
-    revenue, profit, orders, units = (float(r[0]), float(r[1]), int(r[2]), float(r[3]))
+    revenue, profit, orders, units = (to_float(r[0]), to_float(r[1]), int(r[2]), to_float(r[3]))
+    row = pack_kpi_row(revenue, profit, orders, units)
+    # Public contract keeps margin/aov as floats (0.0 when undefined) for
+    # stable sorting; margin_or_none/aov_or_none available for N/A display.
     return {
-        "revenue": revenue,
-        "profit": profit,
-        "margin": (profit / revenue) if revenue else 0.0,
-        "orders": orders,
-        "units": units,
-        "aov": (revenue / orders) if orders else 0.0,
+        "revenue": row["revenue"],
+        "profit": row["profit"],
+        "margin": row["margin"],
+        "margin_or_none": row["margin_or_none"],
+        "orders": row["orders"],
+        "units": row["units"],
+        "aov": row["aov"],
+        "aov_or_none": row["aov_or_none"],
     }
 
 
 def growth(cur: float, prev: float | None) -> float | None:
-    if prev is None or prev == 0:
-        return None
-    return (cur - prev) / abs(prev) * 100.0
+    """Delegates to kpi_catalog.growth (single source of truth)."""
+    return catalog_growth(cur, prev)
 
 
 def first_order_subquery(db: Session):
@@ -161,10 +175,11 @@ def customer_metrics(db: Session, f: dict, cf: date | None, ct: date | None) -> 
     new = sum(1 for ck in in_period if start_key is None or (firsts.get(ck) or 0) >= start_key)
     returning = len(in_period) - new
     rev = base.with_entities(func.coalesce(func.sum(FactSale.revenue), 0)).scalar() or 0
+    total = len(in_period)
     return {
-        "total": len(in_period),
+        "total": total,
         "new": new,
         "returning": returning,
-        "repeat_rate": (returning / len(in_period) * 100.0),
-        "avg_revenue": float(rev) / len(in_period),
+        "repeat_rate": catalog_repeat_rate(returning, total),
+        "avg_revenue": to_float(rev) / total if total else 0.0,
     }

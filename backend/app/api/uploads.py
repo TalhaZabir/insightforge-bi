@@ -167,8 +167,22 @@ def upload_file(
 
 
 @router.get("/uploads")
-def list_uploads(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    files = db.query(UploadedFile).order_by(UploadedFile.created_at.desc()).all()
+def list_uploads(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    search: str | None = None,
+    status: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+):
+    page = max(1, min(page, 1000))
+    page_size = max(1, min(page_size, 100))
+    q = db.query(UploadedFile).order_by(UploadedFile.created_at.desc())
+    if search:
+        like = f"%{search}%"
+        q = q.filter(UploadedFile.filename.ilike(like))
+    files = q.offset((page - 1) * page_size).limit(page_size).all()
+    total = q.order_by(None).count() if hasattr(q, "order_by") else len(files)
     out = []
     for f in files:
         jobs = (
@@ -177,6 +191,8 @@ def list_uploads(db: Session = Depends(get_db), user: User = Depends(get_current
             .order_by(ImportJob.created_at.desc())
             .all()
         )
+        if status and not any(j.status == status for j in jobs):
+            continue
         out.append(
             {
                 "file_id": f.id,
@@ -187,7 +203,7 @@ def list_uploads(db: Session = Depends(get_db), user: User = Depends(get_current
                 "jobs": [{"id": j.id, "status": j.status, "stats": j.stats} for j in jobs],
             }
         )
-    return out
+    return {"total": total, "page": page, "page_size": page_size, "items": out}
 
 
 @router.get("/uploads/{file_id}")
@@ -255,8 +271,11 @@ def discard_upload(
         action,
         "uploaded_file",
         file_id,
-        {"filename": f.filename, "forced": bool(confirmed_jobs and force),
-         "deleted_facts": deleted_facts},
+        {
+            "filename": f.filename,
+            "forced": bool(confirmed_jobs and force),
+            "deleted_facts": deleted_facts,
+        },
     )
     db.commit()
     Path(f.stored_path).unlink(missing_ok=True)
@@ -427,7 +446,9 @@ def clean_file(
     }
 
 
-def _do_confirm(job_id: str, user_id: str):
+def _do_confirm(
+    job_id: str, user_id: str, import_mode: str = "append", confirm_replace: bool = False
+):
     db = SessionFactory()
     try:
         job = db.query(ImportJob).filter(ImportJob.id == job_id).first()
@@ -449,7 +470,9 @@ def _do_confirm(job_id: str, user_id: str):
         db.query(FactSale).filter(FactSale.batch_id == job.batch_id).delete(
             synchronize_session=False
         )
-        summary = load_cleaned_to_db(db, job, outcome.cleaned)
+        summary = load_cleaned_to_db(
+            db, job, outcome.cleaned, import_mode=import_mode, confirm_replace=confirm_replace
+        )
         stats = dict(job.stats or {})
         stats["confirmation"] = summary
         job.stats, job.status = stats, "confirmed"
@@ -488,12 +511,29 @@ def confirm_file(
         raise HTTPException(
             status_code=409, detail=f"Only cleaned jobs can be confirmed (status='{job.status}')"
         )
+    if body.import_mode == "replace" and not body.confirm_replace:
+        raise HTTPException(
+            status_code=422,
+            detail="Replace mode soft-deletes ALL existing dashboard facts. "
+            "Resubmit with confirm_replace=true to proceed.",
+        )
+    if body.import_mode not in ("append", "upsert", "replace"):
+        raise HTTPException(status_code=422, detail=f"Unknown import_mode '{body.import_mode}'")
     job.status, job.error = "processing", None
     db.commit()
-    background.add_task(_do_confirm, job.id, user.id)
-    _audit(db, user, "confirm_start", "import_job", job.id, {})
+    background.add_task(_do_confirm, job.id, user.id, body.import_mode, body.confirm_replace)
+    _audit(db, user, "confirm_start", "import_job", job.id, {"import_mode": body.import_mode})
     db.commit()
-    return {"job_id": job.id, "status": "processing"}
+    return {
+        "job_id": job.id,
+        "status": "processing",
+        "import_mode": body.import_mode,
+        "note": {
+            "append": "New rows are appended as a new batch.",
+            "upsert": "Rows whose order_id already exists are skipped.",
+            "replace": "ALL existing facts are soft-deleted, then new rows are loaded.",
+        }[body.import_mode],
+    }
 
 
 # ---------------- job status / cancel / quality ----------------
@@ -521,15 +561,28 @@ def cancel_job(
 
 @router.get("/data-quality/{job_id}")
 def data_quality(
-    job_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+    job_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    severity: str | None = None,
+    rule: str | None = None,
+    column: str | None = None,
+    page: int = 1,
+    page_size: int = 100,
 ):
     job = _job_or_404(db, job_id)
+    page = max(1, min(page, 1000))
+    page_size = max(1, min(page_size, 500))
+    iq = db.query(ValidationResult).filter(ValidationResult.job_id == job_id)
+    if severity in ("error", "warning"):
+        iq = iq.filter(ValidationResult.severity == severity)
+    if rule:
+        iq = iq.filter(ValidationResult.rule.ilike(f"%{rule}%"))
+    if column:
+        iq = iq.filter(ValidationResult.column_name.ilike(f"%{column}%"))
+    total = iq.count()
     issues = (
-        db.query(ValidationResult)
-        .filter(ValidationResult.job_id == job_id)
-        .order_by(ValidationResult.row_num)
-        .limit(500)
-        .all()
+        iq.order_by(ValidationResult.row_num).offset((page - 1) * page_size).limit(page_size).all()
     )
     by_rule: dict[str, int] = {}
     for i in db.query(ValidationResult).filter(ValidationResult.job_id == job_id).all():
@@ -541,7 +594,16 @@ def data_quality(
         "validation": stats.get("validation"),
         "cleaning": stats.get("cleaning"),
         "confirmation": stats.get("confirmation"),
+        "lineage": {
+            "file_id": job.file_id,
+            "batch_id": job.batch_id,
+            "sheet": job.sheet_name,
+            "mapping": job.mapping,
+        },
         "issues_by_rule": by_rule,
+        "issues_total": total,
+        "page": page,
+        "page_size": page_size,
         "issues_sample": [
             {
                 "row_num": i.row_num,

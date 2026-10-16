@@ -3,10 +3,11 @@
 Generator: `demo-data/generate.py` (seeded, deterministic — same output every run).
 
 ```powershell
-python demo-data/generate.py --rows 12000 --out demo-data
+python demo-data/generate.py --rows 50000 --out demo-data
 ```
 
-What it builds: 24 months (2024-01-01…2025-12-31), ~12k rows, 600 customers
+What it builds: 24 months (2024-01-01–2025-12-31), ~50k rows (default for
+full demo; use --rows 12000 for a quick smoke test), 600 customers
 (Consumer/SMB/Enterprise), 120 products across Electronics / Apparel /
 Home & Kitchen / Sports / Beauty, 5 regions (weak Midwest + Ontario on
 purpose), 3 channels, 8 reps, November–December seasonality, +12% YoY trend,

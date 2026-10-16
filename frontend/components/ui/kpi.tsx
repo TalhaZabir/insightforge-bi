@@ -28,14 +28,15 @@ export function KpiCard({
 }) {
   const delta = data?.growth_pct ?? data?.delta_pp ?? null;
   const good = delta === null ? null : invert ? delta < 0 : delta >= 0;
+  const hasValue = data && data.value !== null && data.value !== undefined;
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" title={hint}>
       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
       <p className="mt-2 text-2xl font-semibold text-[#0A1628]">
-        {data ? format(data.value) : "—"}
+        {hasValue ? format(data.value) : "N/A"}
       </p>
       <p className="mt-1 flex items-center gap-1 text-xs">
-        {delta !== null && (
+        {delta !== null && delta !== undefined ? (
           <span
             className={cn(
               "inline-flex items-center gap-0.5 font-semibold",
@@ -45,6 +46,8 @@ export function KpiCard({
             {delta >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
             {fmtGrowth(delta)}
           </span>
+        ) : (
+          <span className="text-slate-400">Insufficient history</span>
         )}
         <span className="text-slate-400">vs prev. period</span>
       </p>

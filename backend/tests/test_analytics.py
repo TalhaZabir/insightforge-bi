@@ -1,4 +1,5 @@
 """Analytics + insights + export tests on a hand-computed mini dataset (Part 5)."""
+
 from __future__ import annotations
 
 import io
@@ -30,9 +31,18 @@ from app.models.entities import (
 def _d(db, iso):
     d = date.fromisoformat(iso)
     key = int(iso.replace("-", ""))
-    row = DimDate(date_key=key, date=d, year=d.year, quarter=1, month=d.month,
-                  month_name="January", day=d.day, weekday=d.weekday(),
-                  weekday_name="x", is_weekend=False)
+    row = DimDate(
+        date_key=key,
+        date=d,
+        year=d.year,
+        quarter=1,
+        month=d.month,
+        month_name="January",
+        day=d.day,
+        weekday=d.weekday(),
+        weekday_name="x",
+        is_weekend=False,
+    )
     db.add(row)
     db.flush()
     return key
@@ -54,40 +64,126 @@ def client(tmp_path, monkeypatch):
     cb = DimCustomer(customer_id="C-B", customer_name="Bob", segment="SMB")
     cc = DimCustomer(customer_id="C-C", customer_name="Cat", segment="Enterprise")
     cd = DimCustomer(customer_id="C-D", customer_name="Dee", segment="Consumer")
-    px = DimProduct(product_id="P-X", product_name="Xenon", category="Electronics",
-                    subcategory="Audio")
-    py = DimProduct(product_id="P-Y", product_name="Yarn", category="Apparel",
-                    subcategory="Knitwear")
+    px = DimProduct(
+        product_id="P-X", product_name="Xenon", category="Electronics", subcategory="Audio"
+    )
+    py = DimProduct(
+        product_id="P-Y", product_name="Yarn", category="Apparel", subcategory="Knitwear"
+    )
     s.add_all([ch, rg, ca, cb, cc, cd, px, py])
     s.flush()
-    k = {d: _d(s, d) for d in ["2024-01-02", "2024-01-05", "2024-01-12",
-                               "2024-01-15", "2024-01-18", "2024-01-19"]}
+    k = {
+        d: _d(s, d)
+        for d in [
+            "2024-01-02",
+            "2024-01-05",
+            "2024-01-12",
+            "2024-01-15",
+            "2024-01-18",
+            "2024-01-19",
+        ]
+    }
 
     def F(**kw):
-        return FactSale(batch_id="b1", line_num=1, customer_key=kw.pop("ck", None),
-                        product_key=kw.pop("pk", None), region_key=rg.id,
-                        channel_key=ch.id, date_key=kw.pop("dk"), **kw)
+        return FactSale(
+            batch_id="b1",
+            line_num=1,
+            customer_key=kw.pop("ck", None),
+            product_key=kw.pop("pk", None),
+            region_key=rg.id,
+            channel_key=ch.id,
+            date_key=kw.pop("dk"),
+            **kw,
+        )
 
-    s.add_all([
-        F(order_id="O-1", dk=k["2024-01-02"], ck=ca.id, pk=px.id, quantity=2,
-          unit_price=100, discount=0, cost=60, shipping_cost=5, revenue=200, profit=75,
-          order_status="Completed"),
-        F(order_id="O-2", dk=k["2024-01-05"], ck=cc.id, pk=py.id, quantity=1,
-          unit_price=100, discount=0.2, cost=85, shipping_cost=0, revenue=80, profit=-5,
-          order_status="Completed"),
-        F(order_id="O-3", dk=k["2024-01-12"], ck=cb.id, pk=px.id, quantity=1,
-          unit_price=100, discount=0, cost=60, shipping_cost=0, revenue=100, profit=40,
-          order_status="Completed"),
-        F(order_id="O-4", dk=k["2024-01-15"], ck=cc.id, pk=px.id, quantity=3,
-          unit_price=50, discount=0.1, cost=30, shipping_cost=5, revenue=135, profit=40,
-          order_status="Completed"),
-        F(order_id="O-5", dk=k["2024-01-18"], ck=ca.id, pk=py.id, quantity=1,
-          unit_price=50, discount=0, cost=20, shipping_cost=0, revenue=50, profit=30,
-          order_status="Cancelled"),
-        F(order_id="O-6", dk=k["2024-01-19"], ck=cd.id, pk=px.id, quantity=1,
-          unit_price=100, discount=0, cost=60, shipping_cost=0, revenue=100, profit=40,
-          order_status="Completed"),
-    ])
+    s.add_all(
+        [
+            F(
+                order_id="O-1",
+                dk=k["2024-01-02"],
+                ck=ca.id,
+                pk=px.id,
+                quantity=2,
+                unit_price=100,
+                discount=0,
+                cost=60,
+                shipping_cost=5,
+                revenue=200,
+                profit=75,
+                order_status="Completed",
+            ),
+            F(
+                order_id="O-2",
+                dk=k["2024-01-05"],
+                ck=cc.id,
+                pk=py.id,
+                quantity=1,
+                unit_price=100,
+                discount=0.2,
+                cost=85,
+                shipping_cost=0,
+                revenue=80,
+                profit=-5,
+                order_status="Completed",
+            ),
+            F(
+                order_id="O-3",
+                dk=k["2024-01-12"],
+                ck=cb.id,
+                pk=px.id,
+                quantity=1,
+                unit_price=100,
+                discount=0,
+                cost=60,
+                shipping_cost=0,
+                revenue=100,
+                profit=40,
+                order_status="Completed",
+            ),
+            F(
+                order_id="O-4",
+                dk=k["2024-01-15"],
+                ck=cc.id,
+                pk=px.id,
+                quantity=3,
+                unit_price=50,
+                discount=0.1,
+                cost=30,
+                shipping_cost=5,
+                revenue=135,
+                profit=40,
+                order_status="Completed",
+            ),
+            F(
+                order_id="O-5",
+                dk=k["2024-01-18"],
+                ck=ca.id,
+                pk=py.id,
+                quantity=1,
+                unit_price=50,
+                discount=0,
+                cost=20,
+                shipping_cost=0,
+                revenue=50,
+                profit=30,
+                order_status="Cancelled",
+            ),
+            F(
+                order_id="O-6",
+                dk=k["2024-01-19"],
+                ck=cd.id,
+                pk=px.id,
+                quantity=1,
+                unit_price=100,
+                discount=0,
+                cost=60,
+                shipping_cost=0,
+                revenue=100,
+                profit=40,
+                order_status="Completed",
+            ),
+        ]
+    )
     s.commit()
     s.close()
 
@@ -100,8 +196,9 @@ def client(tmp_path, monkeypatch):
 
     app.dependency_overrides[get_db] = override
     with TestClient(app) as c:
-        tok = c.post("/auth/login",
-                     json={"email": "a@t.io", "password": "pw123456"}).json()["access_token"]
+        tok = c.post("/auth/login", json={"email": "a@t.io", "password": "pw123456"}).json()[
+            "access_token"
+        ]
         c.headers.update({"Authorization": f"Bearer {tok}"})
         yield c
     app.dependency_overrides.clear()
@@ -122,9 +219,13 @@ def test_overview_kpis_and_growth(client: TestClient):
     assert k["orders"]["value"] == 3  # cancelled excluded
     assert k["aov"]["value"] == pytest.approx(335 / 3)
     # C-A's only P2 order is cancelled, so it confers no active-customer status
-    assert r["customers"] == {"total": 3, "new": 2, "returning": 1,
-                              "repeat_rate": pytest.approx(33.333, abs=0.01),
-                              "avg_revenue": pytest.approx(335 / 3)}
+    assert r["customers"] == {
+        "total": 3,
+        "new": 2,
+        "returning": 1,
+        "repeat_rate": pytest.approx(33.333, abs=0.01),
+        "avg_revenue": pytest.approx(335 / 3),
+    }
 
 
 def test_breakdowns_and_table(client: TestClient):
@@ -137,9 +238,10 @@ def test_breakdowns_and_table(client: TestClient):
     assert cats["Electronics"]["revenue"] == pytest.approx(335.0)
     assert "Apparel" not in cats  # only cancelled line in P2
 
-    t = client.get("/analytics/sales/orders",
-                   params={**P2, "page": 1, "page_size": 2, "sort": "revenue",
-                           "direction": "desc"}).json()
+    t = client.get(
+        "/analytics/sales/orders",
+        params={**P2, "page": 1, "page_size": 2, "sort": "revenue", "direction": "desc"},
+    ).json()
     assert t["total"] == 3 and t["items"][0]["order_id"] == "O-4"
 
     p = client.get("/analytics/profitability", params=P2).json()
@@ -165,13 +267,11 @@ def test_insights_are_traceable(client: TestClient):
     assert any("expanded" in h for h in heads)  # margin
     assert any("Top 3 customers" in h for h in heads)  # concentration
     for i in r["insights"]:
-        assert set(i) >= {"category", "severity", "headline", "explanation",
-                          "metric", "action"}
+        assert set(i) >= {"category", "severity", "headline", "explanation", "metric", "action"}
         assert i["category"] in {"trend", "opportunity", "risk", "quality"}
         assert i["severity"] in {"positive", "neutral", "warning", "critical"}
 
-    empty = client.get("/insights",
-                       params={"from": "2030-01-01", "to": "2030-01-31"}).json()
+    empty = client.get("/insights", params={"from": "2030-01-01", "to": "2030-01-31"}).json()
     assert empty["insights"][0]["headline"].startswith("No orders")
 
 

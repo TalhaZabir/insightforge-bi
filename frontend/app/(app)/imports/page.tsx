@@ -29,6 +29,8 @@ function Wizard() {
   const [phase, setPhase] = useState<Phase>("upload");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+  const [importMode, setImportMode] = useState<"append" | "upsert" | "replace">("append");
+  const [confirmReplace, setConfirmReplace] = useState(false);
 
   const loadPreview = useCallback(async (fileId: string, sh: string | null) => {
     const p = await apiPost<PreviewData>(`/uploads/${fileId}/preview`, { sheet: sh, limit: 20 });
@@ -97,7 +99,11 @@ function Wizard() {
   const doConfirm = () =>
     run(async () => {
       if (!file || !jobId) return;
-      await apiPost(`/uploads/${file.file_id}/confirm`, { job_id: jobId });
+      await apiPost(`/uploads/${file.file_id}/confirm`, {
+        job_id: jobId,
+        import_mode: importMode,
+        confirm_replace: confirmReplace,
+      });
       setPhase("confirming");
     });
 
@@ -194,6 +200,30 @@ function Wizard() {
             </p>
           )}
           <QualityStep jobId={jobId} />
+          <Card className="p-4 text-xs text-slate-600">
+            <label className="flex flex-wrap items-center gap-2">
+              <span className="font-medium">Import mode:</span>
+              <select
+                value={importMode}
+                onChange={(e) => setImportMode(e.target.value as "append" | "upsert" | "replace")}
+                className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
+              >
+                <option value="append">Append — add all rows as a new batch</option>
+                <option value="upsert">Upsert — skip order_ids that already exist</option>
+                <option value="replace">Replace — soft-delete ALL existing facts first</option>
+              </select>
+            </label>
+            {importMode === "replace" && (
+              <label className="mt-2 flex items-center gap-2 text-xs text-red-700">
+                <input
+                  type="checkbox"
+                  checked={confirmReplace}
+                  onChange={(e) => setConfirmReplace(e.target.checked)}
+                />
+                I understand this will soft-delete all existing dashboard data.
+              </label>
+            )}
+          </Card>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" disabled={busy} onClick={() => void doValidate()}>
               Re-run validation

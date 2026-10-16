@@ -9,15 +9,23 @@ and Power BI-ready exports. Built with **Next.js 14 + FastAPI + PostgreSQL**.
 - **Guided import wizard**: drag-drop upload, sheet picker, file preview,
   alias-assisted column mapping, validation (errors vs warnings), transparent
   cleaning with before/after examples, background confirm, completion summary
-- **Analytics**: overview (9 KPIs + prev-period deltas), sales, profitability
-  (discount-vs-margin, low-margin alerts), customers (CLV, new/returning),
-  products (leaders/laggards + drilldown), regions & channels — all
+- **Analytics**: overview (9 KPIs + prev-period deltas), sales (+ baseline
+  revenue forecast with backtest), profitability
+  (discount-vs-margin, low-margin alerts), customers (CLV, new/returning,
+  **RFM, cohort retention, declining**), products (leaders/laggards +
+  drilldown), regions & channels, monthly **targets tracking** — all
   filterable (date, region, category, channel, segment, status…) with
-  URL-synced filters
-- **Executive insights**: 10 deterministic, traceable rules (trend, risk,
-  opportunity, data quality) — no black box, no external AI calls
-- **Power BI**: one-click ZIP (fact + 6 dimensions), 18 DAX measures,
+  URL-synced filters; KPIs centralized in `kpi_catalog.py`, money as
+  `Numeric(12,2)`
+- **Executive insights**: 12 deterministic, traceable rules (trend, risk,
+  opportunity, data quality, **target variance, forecast risk**) with
+  configurable `INS_*` thresholds, evidence fields and dismiss — no black
+  box, no external AI calls
+- **Power BI**: filtered one-click ZIP (fact + dimensions + DAX + manifest
+  with reconciliation totals), 18 DAX measures,
   star-schema docs, Import + DirectQuery guides
+- **Imports**: append/upsert/replace modes, searchable history, formula-
+  injection guard, quality filters + lineage in the data-quality report
 - **Auth & RBAC**: admin / analyst / viewer demo accounts, JWT, audit logs
 
 ## Screenshots
@@ -62,7 +70,7 @@ cd ..\frontend; npm install; npm run dev
 Demo logins: `admin@insightforge.io / Admin123!`,
 `analyst@insightforge.io / Analyst123!`, `viewer@insightforge.io / Viewer123!`
 
-Generate + import demo data: `python demo-data/generate.py --rows 12000`
+Generate + import demo data: `python demo-data/generate.py --rows 50000`
 (see `docs/demo-data.md`), then Data Imports → upload the CSV.
 
 ## Project structure
@@ -86,7 +94,7 @@ docs/      setup, architecture, schema, validation, analytics, api, powerbi,
 | Frontend lint/tests | `cd frontend && node ".\node_modules\next\dist\bin\next" lint --dir . && node ".\node_modules\vitest\vitest.mjs" run` |
 | Migrate | `cd backend && python -m alembic upgrade head` |
 | Seeds / reset+seed | `cd backend && python -m app.seeds.run [--reset]` |
-| Demo data | `python demo-data/generate.py --rows 12000 --out demo-data` |
+| Demo data | `python demo-data/generate.py --rows 50000 --out demo-data` |
 | CI | `.github/workflows/ci.yml` (backend + frontend jobs) |
 
 ## Docs index

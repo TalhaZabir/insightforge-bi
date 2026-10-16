@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiDelete, apiGet, apiPost, ApiError } from "@/lib/api";
@@ -23,7 +24,13 @@ const tone = (s: string) =>
 
 export function ImportHistory({ onPick }: { onPick: (fileId: string) => void }) {
   const qc = useQueryClient();
-  const q = useQuery({ queryKey: ["uploads"], queryFn: () => apiGet<FileRow[]>("/uploads") });
+  const [search, setSearch] = useState("");
+  const [applied, setApplied] = useState("");
+  const q = useQuery({
+    queryKey: ["uploads", applied],
+    queryFn: () => apiGet<FileRow[] | { items: FileRow[] }>(`/uploads${applied ? `?search=${encodeURIComponent(applied)}` : ""}`),
+  });
+  const rows: FileRow[] = Array.isArray(q.data) ? q.data : (q.data?.items ?? []);
 
   const act = async (fn: () => Promise<unknown>, ok: string) => {
     try {
@@ -37,14 +44,32 @@ export function ImportHistory({ onPick }: { onPick: (fileId: string) => void }) 
 
   if (q.isPending) return <p className="text-xs text-slate-500">Loading history…</p>;
   if (q.isError) return <p className="text-xs text-red-600">History unavailable: {q.error.message}</p>;
-  if (q.data.length === 0)
+  if (rows.length === 0)
     return <p className="text-xs text-slate-500">No uploads yet. Your import history will appear here.</p>;
 
   return (
     <Card className="p-5">
       <CardTitle>Import history</CardTitle>
+      <form
+        className="mt-2 flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setApplied(search);
+        }}
+      >
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by filename…"
+          aria-label="Search import history"
+          className="w-full max-w-xs rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+        />
+        <Button size="sm" variant="secondary" type="submit">
+          Search
+        </Button>
+      </form>
       <div className="mt-3 space-y-3">
-        {q.data.map((f) => {
+        {rows.map((f) => {
           const hasConfirmed = f.jobs.some((j) => j.status === "confirmed");
           const hasProcessing = f.jobs.some((j) => j.status === "processing");
           return (

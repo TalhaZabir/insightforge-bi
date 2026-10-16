@@ -72,9 +72,37 @@ def _get_or_create(db: Session, model, cache: dict, lookup: dict, defaults: dict
     return row.id
 
 
-def load_cleaned_to_db(db: Session, job: ImportJob, cleaned: pd.DataFrame) -> dict:
+def load_cleaned_to_db(
+    db: Session,
+    job: ImportJob,
+    cleaned: pd.DataFrame,
+    import_mode: str = "append",
+    confirm_replace: bool = False,
+) -> dict:
     cache: dict = {}
     facts: list[FactSale] = []
+    skipped_upsert = 0
+    soft_deleted = 0
+
+    if import_mode == "replace":
+        if not confirm_replace:
+            raise ValueError("replace mode requires confirm_replace=True")
+        soft_deleted = (
+            db.query(FactSale)
+            .filter(FactSale.is_deleted.is_(False))
+            .update({"is_deleted": True}, synchronize_session=False)
+        )
+        db.flush()
+
+    existing_order_ids: set[str] = set()
+    if import_mode == "upsert":
+        existing_order_ids = {
+            r[0]
+            for r in db.query(FactSale.order_id)
+            .filter(FactSale.is_deleted.is_(False))
+            .distinct()
+            .all()
+        }
 
     def val(row, col: str, default=None):
         v = row.get(col, default)
@@ -95,6 +123,10 @@ def load_cleaned_to_db(db: Session, job: ImportJob, cleaned: pd.DataFrame) -> di
         return 0.0 if pd.isna(f) else f
 
     for i, r in cleaned.iterrows():
+        oid = str(r["order_id"])
+        if import_mode == "upsert" and oid in existing_order_ids:
+            skipped_upsert += 1
+            continue
         date_key = _get_or_create_date(db, str(r["order_date"]), cache)
         cust = val(r, "customer_id")
         customer_key = (
@@ -175,7 +207,7 @@ def load_cleaned_to_db(db: Session, job: ImportJob, cleaned: pd.DataFrame) -> di
 
     # completion summary from what was actually written
     rows = db.query(FactSale).filter(FactSale.batch_id == job.batch_id).all()
-    revenues = [x.revenue for x in rows]
+    revenues = [float(x.revenue or 0) for x in rows]
     dates = sorted({x.date_key for x in rows})
     return {
         "confirmed_rows": len(rows),
@@ -185,4 +217,7 @@ def load_cleaned_to_db(db: Session, job: ImportJob, cleaned: pd.DataFrame) -> di
         "customers": len({x.customer_key for x in rows if x.customer_key}),
         "products": len({x.product_key for x in rows if x.product_key}),
         "regions": len({x.region_key for x in rows if x.region_key}),
+        "import_mode": import_mode,
+        "skipped_upsert": skipped_upsert,
+        "soft_deleted": soft_deleted,
     }

@@ -14,8 +14,12 @@ type Uploads = {
 }[];
 
 export default function QualityPage() {
-  const q = useQuery({ queryKey: ["uploads"], queryFn: () => apiGet<Uploads>("/uploads") });
-  const jobs = (q.data ?? []).flatMap((f) =>
+  const q = useQuery({
+    queryKey: ["uploads"],
+    queryFn: () => apiGet<Uploads | { items: Uploads }>(`/uploads?page_size=100`),
+  });
+  const rows: Uploads = Array.isArray(q.data) ? q.data : (q.data?.items ?? []);
+  const jobs = rows.flatMap((f) =>
     f.jobs.map((j) => ({ ...j, file: f.filename }))
   );
   const [jobId, setJobId] = useState<string | null>(null);

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet, downloadFile } from "@/lib/api";
 import { fmtCurrency } from "@/lib/format";
@@ -21,9 +22,16 @@ type Quality = {
 };
 
 export function QualityStep({ jobId }: { jobId: string }) {
+  const [severity, setSeverity] = useState<string>("");
+  const [rule, setRule] = useState<string>("");
+  const [appliedRule, setAppliedRule] = useState<string>("");
+  const params = new URLSearchParams();
+  if (severity) params.set("severity", severity);
+  if (appliedRule) params.set("rule", appliedRule);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
   const q = useQuery({
-    queryKey: ["quality", jobId],
-    queryFn: () => apiGet<Quality>(`/data-quality/${jobId}`),
+    queryKey: ["quality", jobId, severity, appliedRule],
+    queryFn: () => apiGet<Quality>(`/data-quality/${jobId}${suffix}`),
   });
 
   if (q.isPending)
@@ -137,6 +145,36 @@ export function QualityStep({ jobId }: { jobId: string }) {
 
       <Card className="p-5">
         <CardTitle>Issues by rule</CardTitle>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <select
+            value={severity}
+            onChange={(e) => setSeverity(e.target.value)}
+            aria-label="Filter by severity"
+            className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
+          >
+            <option value="">All severities</option>
+            <option value="error">Errors (blocking)</option>
+            <option value="warning">Warnings (non-blocking)</option>
+          </select>
+          <form
+            className="flex gap-1.5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setAppliedRule(rule);
+            }}
+          >
+            <input
+              value={rule}
+              onChange={(e) => setRule(e.target.value)}
+              placeholder="Filter by rule…"
+              aria-label="Filter by rule"
+              className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
+            />
+            <Button size="sm" variant="secondary" type="submit">
+              Filter
+            </Button>
+          </form>
+        </div>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {Object.entries(q.data.issues_by_rule).map(([rule, n]) => (
             <Badge key={rule} tone={rule.startsWith("error") ? "red" : "amber"}>

@@ -8,7 +8,7 @@ import { MoneyBars, TrendChart } from "@/components/charts/charts";
 import { RankTable } from "@/components/charts/tables";
 import { Card, CardHint, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { EmptyState, ErrorState } from "@/components/ui/kpi";
+import { EmptyState, ErrorState, KpiCard } from "@/components/ui/kpi";
 import { ChartSkeleton } from "@/components/ui/skeleton";
 
 type Profit = {
@@ -51,21 +51,9 @@ export default function ProfitPage() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card className="p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Gross profit</p>
-          <p className="mt-1 text-xl font-semibold">{fmtCurrency(q.data.kpis.profit)}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Profit margin</p>
-          <p className="mt-1 text-xl font-semibold">{fmtMargin(q.data.kpis.margin)}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Cost vs revenue</p>
-          <p className="mt-1 text-xl font-semibold">
-            {fmtCurrency(q.data.kpis.revenue - q.data.kpis.profit)}
-            <span className="ml-1 text-xs font-normal text-slate-500">total cost</span>
-          </p>
-        </Card>
+        <KpiCard label="Gross profit" hint="Revenue minus COGS and shipping" format={(v) => fmtCurrency(v)} data={{ value: q.data.kpis.profit }} />
+        <KpiCard label="Profit margin" hint="Profit divided by revenue (weighted)" format={fmtMargin} data={{ value: q.data.kpis.margin }} />
+        <KpiCard label="Total cost" hint="Revenue minus profit (COGS + shipping)" format={(v) => fmtCurrency(v)} data={{ value: q.data.kpis.revenue - q.data.kpis.profit }} />
       </div>
 
       {q.data.low_margin_products.length > 0 && (

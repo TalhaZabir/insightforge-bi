@@ -30,6 +30,7 @@ type Insight = {
 };
 
 type Uploads = { file_id: string; filename: string; jobs: { id: string; status: string }[] }[];
+type UploadsResp = Uploads | { items: Uploads };
 
 const CARDS: { label: string; hint: string; format: (v: number | null | undefined) => string; key: string }[] = [
   { label: "Total revenue", hint: "Sum of line revenue, excluding cancelled orders", format: (v) => fmtCurrency(v), key: "revenue" },
@@ -53,7 +54,7 @@ export default function OverviewPage() {
     queryKey: ["insights-preview", queryString],
     queryFn: () => apiGet<{ insights: Insight[] }>(`/insights${queryString}`),
   });
-  const up = useQuery({ queryKey: ["uploads-mini"], queryFn: () => apiGet<Uploads>("/uploads") });
+  const up = useQuery({ queryKey: ["uploads-mini"], queryFn: () => apiGet<UploadsResp>("/uploads?page_size=5") });
 
   if (q.isPending) return <KpiSkeleton />;
   if (q.isError) return <ErrorState message={q.error.message} onRetry={() => q.refetch()} />;
@@ -67,7 +68,8 @@ export default function OverviewPage() {
     );
   }
 
-  const latestJob = up.data?.flatMap((f) => f.jobs.map((j) => ({ ...j, file: f.filename })))?.[0];
+  const uploads: Uploads = Array.isArray(up.data) ? up.data : (up.data?.items ?? []);
+  const latestJob = uploads?.flatMap((f) => f.jobs.map((j) => ({ ...j, file: f.filename })))?.[0];
 
   return (
     <div className="space-y-4">

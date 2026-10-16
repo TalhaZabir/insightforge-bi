@@ -8,6 +8,7 @@ from app.models.entities import (  # noqa: F401
     DimRep,
     FactSale,
     ImportJob,
+    MonthlyTarget,
     RawSalesRecord,
     RejectedRecord,
     UploadedFile,
