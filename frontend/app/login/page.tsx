@@ -95,9 +95,10 @@ export default function LoginPage() {
             {DEMO.map((d) => (
               <button
                 key={d.email}
+                type="button"
                 onClick={() => {
-                  setValue("email", d.email);
-                  setValue("password", d.password);
+                  setValue("email", d.email, { shouldValidate: true, shouldDirty: true });
+                  setValue("password", d.password, { shouldValidate: true, shouldDirty: true });
                 }}
                 className="flex w-full items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-xs hover:bg-slate-100"
               >
