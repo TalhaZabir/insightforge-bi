@@ -5,7 +5,7 @@ from sqlalchemy import text
 
 from app.db.session import engine
 
-router = APIRouter()
+router = APIRouter(tags=["system"])
 
 
 @router.get("/health")
@@ -14,6 +14,7 @@ def health():
 
 
 @router.get("/readiness")
+@router.get("/health/readiness")
 def readiness():
     try:
         with engine.connect() as conn:

@@ -51,6 +51,13 @@ services:
       - frontend
       - backend
 
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'
+
 volumes:
   pgdata:
   certbot_conf:

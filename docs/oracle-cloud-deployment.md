@@ -212,14 +212,15 @@ If you have a domain name (e.g., `bi.yourdomain.com`):
 ### 1. Connection Refused / Timeout on Port 80 in Browser
 - **Check OCI VCN Ingress Rules**: Ensure Port 80 is added in the Default Security List for `0.0.0.0/0`.
 - **Check Host Firewall**: Run `sudo bash scripts/oracle-firewall.sh` on the VM. Oracle Cloud's default Ubuntu images block all ports except 22 via raw `iptables` rules.
-- **Check Docker Status**: Run `sudo docker compose -f docker-compose.prod.yml ps` to confirm all 4 containers (`nginx`, `frontend`, `backend`, `postgres`) are `Up`.
+- **Check Docker Status**: Run `sudo docker compose -f docker-compose.prod.yml ps` to confirm all 5 containers (`nginx`, `frontend`, `backend`, `postgres`, `certbot`) are `Up`.
 
 ### 2. Frontend shows "Network Error" or cannot connect to API
 - In production, all API calls go to `/api/*` on the same host through Nginx.
 - Check backend logs: `sudo docker compose -f docker-compose.prod.yml logs backend`.
-- Check if readiness endpoint is returning `{"status":"ok"}`:
+- Check if readiness endpoint is returning `{"status":"ready","database":"up"}`:
   ```bash
   curl http://localhost/health/readiness
+  curl http://localhost/health
   ```
 
 ### 3. Out of Memory (OOM) during `docker compose build`

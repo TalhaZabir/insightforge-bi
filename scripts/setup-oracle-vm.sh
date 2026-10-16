@@ -184,7 +184,7 @@ HEALTHY=0
 while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
     sleep 3
     ATTEMPTS=$((ATTEMPTS + 1))
-    if curl -s http://localhost/health/readiness | grep -q "ok" || curl -s http://localhost/docs >/dev/null 2>&1; then
+    if curl -s http://localhost/health/readiness | grep -q '"status": *"ready"' || curl -s http://localhost/health | grep -q '"status": *"ok"' || curl -s http://localhost/docs >/dev/null 2>&1; then
         HEALTHY=1
         break
     fi

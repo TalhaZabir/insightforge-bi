@@ -31,10 +31,14 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="InsightForge BI API", version="0.1.0", docs_url="/docs", lifespan=lifespan)
 
 app.add_middleware(RequestIDMiddleware)
+# Starlette rejects allow_origins=["*"] combined with allow_credentials=True.
+# In prod behind Nginx (same-origin /api) CORS is a no-op, so drop credentials for wildcard.
+_cors_origins = settings.cors_origins_list
+_allow_credentials = "*" not in _cors_origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
